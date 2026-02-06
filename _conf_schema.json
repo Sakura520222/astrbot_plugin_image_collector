@@ -54,11 +54,24 @@
     "default": true,
     "hint": "自动压缩图片以节省存储空间"
   },
+  "force_compression": {
+    "type": "bool",
+    "description": "强制压缩",
+    "default": false,
+    "hint": "强制对所有图片进行压缩，无论原始大小如何"
+  },
   "preserve_gif": {
     "type": "bool",
     "description": "保留GIF动图",
     "default": true,
     "hint": "GIF动图不进行压缩，保持原始格式"
+  },
+  "target_size_kb": {
+    "type": "int",
+    "description": "目标文件大小（KB）",
+    "default": 0,
+    "hint": "指定压缩目标大小（KB），0表示不限制。将尽可能压缩到此大小以下",
+    "slider": {"min": 0, "max": 5000, "step": 50}
   },
   "max_width": {
     "type": "int",

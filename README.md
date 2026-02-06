@@ -60,12 +60,36 @@
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
 | `enable_compression` | 是否启用图片压缩 | true |
+| `force_compression` | 强制压缩（无论图片大小如何都进行压缩） | false |
 | `preserve_gif` | 保留GIF动图（不压缩） | true |
+| `target_size_kb` | 目标文件大小（KB），0表示不限制 | 0 |
 | `max_width` | 最大宽度（像素） | 1920 |
 | `max_height` | 最大高度（像素） | 1080 |
 | `jpeg_quality` | JPEG质量（1-100） | 85 |
 | `max_file_size` | 最大文件大小（MB） | 2 |
 | `convert_to_jpeg` | PNG转JPEG | true |
+
+**压缩模式说明**：
+
+1. **标准压缩模式**（默认）：
+   - 当 `force_compression` 为 `false` 且 `target_size_kb` 为 `0` 时
+   - 只压缩超过 `max_file_size` 的图片
+   - 例如：设置 `max_file_size` 为 2MB，只有超过 2MB 的图片才会被压缩
+
+2. **强制压缩模式**：
+   - 当 `force_compression` 为 `true` 时
+   - 对所有图片进行压缩，无论原始大小如何
+   - 适用于希望统一图片大小的场景
+
+3. **目标大小压缩模式**：
+   - 当 `target_size_kb` 大于 `0` 时
+   - 将图片尽可能压缩到指定大小以下（KB）
+   - 使用更激进的压缩策略以快速达到目标大小
+   - 例如：设置 `target_size_kb` 为 500，图片将尽可能压缩到 500KB 以下
+
+**压缩优先级**：
+- 如果同时设置了 `force_compression` 和 `target_size_kb`，将使用目标大小进行压缩
+- 如果只设置了 `force_compression`，将使用 `max_file_size` 作为压缩目标
 
 ### 去重配置
 
