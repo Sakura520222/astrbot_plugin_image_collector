@@ -1,0 +1,102 @@
+{
+  "enable_save": {
+    "type": "bool",
+    "description": "启用图片保存",
+    "default": true,
+    "hint": "是否自动保存群友发送的图片"
+  },
+  "enable_random_send": {
+    "type": "bool",
+    "description": "启用随机发送",
+    "default": true,
+    "hint": "用户发送非图片消息时是否随机发送其图库图片"
+  },
+  "min_images": {
+    "type": "int",
+    "description": "最少图片数",
+    "default": 1,
+    "hint": "用户至少需要多少张图片才会触发随机发送"
+  },
+  "save_on_image_msg": {
+    "type": "bool",
+    "description": "图片消息时也随机回复",
+    "default": false,
+    "hint": "发送图片消息时是否也随机回复其图库图片"
+  },
+  "exclude_words": {
+    "type": "list",
+    "description": "排除词列表",
+    "default": ["帮助", "查询", "命令", "菜单"],
+    "hint": "包含这些词的消息不会触发随机发送"
+  },
+  "enable_compression": {
+    "type": "bool",
+    "description": "启用图片压缩",
+    "default": true,
+    "hint": "自动压缩图片以节省存储空间"
+  },
+  "preserve_gif": {
+    "type": "bool",
+    "description": "保留GIF动图",
+    "default": true,
+    "hint": "GIF动图不进行压缩，保持原始格式"
+  },
+  "max_width": {
+    "type": "int",
+    "description": "最大宽度",
+    "default": 1920,
+    "hint": "图片最大宽度（像素），超过将等比缩放"
+  },
+  "max_height": {
+    "type": "int",
+    "description": "最大高度",
+    "default": 1080,
+    "hint": "图片最大高度（像素），超过将等比缩放"
+  },
+  "jpeg_quality": {
+    "type": "int",
+    "description": "JPEG质量",
+    "default": 85,
+    "hint": "JPEG压缩质量，1-100，越高越好但文件越大",
+    "slider": {"min": 50, "max": 100, "step": 5}
+  },
+  "max_file_size": {
+    "type": "int",
+    "description": "最大文件大小（MB）",
+    "default": 2,
+    "hint": "单张图片最大文件大小，超过将降低质量",
+    "slider": {"min": 1, "max": 10, "step": 1}
+  },
+  "convert_to_jpeg": {
+    "type": "bool",
+    "description": "PNG转JPEG",
+    "default": true,
+    "hint": "将PNG格式转换为JPEG以减小文件大小（会丢失透明通道）"
+  },
+  "enable_md5_dedup": {
+    "type": "bool",
+    "description": "启用MD5去重",
+    "default": true,
+    "hint": "使用MD5哈希进行精确去重"
+  },
+  "enable_phash": {
+    "type": "bool",
+    "description": "启用感知哈希去重",
+    "default": true,
+    "hint": "可以识别经过轻微修改的同一张图片"
+  },
+  "phash_threshold": {
+    "type": "int",
+    "description": "相似度阈值",
+    "default": 5,
+    "hint": "汉明距离，0-20，越小越严格。建议值：5",
+    "slider": {"min": 0, "max": 20, "step": 1}
+  },
+  "dedup_scope": {
+    "type": "string",
+    "description": "去重范围",
+    "options": ["user", "group", "global"],
+    "default": "user",
+    "hint": "user: 仅同一用户去重, group: 同一群去重, global: 全局去重"
+  }
+}

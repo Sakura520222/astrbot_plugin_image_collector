@@ -1,0 +1,9 @@
+name: image_collector
+author: Cline
+description: 自动收集群友发送的图片，支持去重和压缩，并在用户发送消息时随机回复其图库中的图片
+version: 1.0.0
+repository: https://github.com/your-repo/astrbot_plugin_image_collector
+tags:
+  - 图片
+  - 娱乐
+  - 群管
