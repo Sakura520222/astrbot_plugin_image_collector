@@ -11,6 +11,13 @@
     "default": true,
     "hint": "用户发送非图片消息时是否随机发送其图库图片"
   },
+  "random_send_probability": {
+    "type": "float",
+    "description": "随机发送概率",
+    "default": 0.3,
+    "hint": "每次消息触发随机发送的概率（0.0-1.0），0.3表示30%概率",
+    "slider": {"min": 0, "max": 1, "step": 0.1}
+  },
   "min_images": {
     "type": "int",
     "description": "最少图片数",
@@ -26,8 +33,20 @@
   "exclude_words": {
     "type": "list",
     "description": "排除词列表",
-    "default": ["帮助", "查询", "命令", "菜单"],
+    "default": ["帮助", "查询", "命令", "菜单", "图片统计", "我的图片"],
     "hint": "包含这些词的消息不会触发随机发送"
+  },
+  "ignore_commands": {
+    "type": "bool",
+    "description": "忽略所有指令(不工作)",
+    "default": true,
+    "hint": "忽略所有指令消息，不触发随机发送"
+  },
+  "command_prefixes": {
+    "type": "list",
+    "description": "指令前缀列表",
+    "default": ["/"],
+    "hint": "识别哪些前缀开头的消息为指令，如 [\"/\", \"#\", \"！\"]"
   },
   "enable_compression": {
     "type": "bool",

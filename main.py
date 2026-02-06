@@ -24,10 +24,10 @@ from astrbot.api.star import Context, Star, register
 
 @register(
     "image_collector",
-    "Cline",
+    "Sakura520222",
     "自动收集群友发送的图片，支持去重和压缩，并在用户发送消息时随机回复其图库中的图片",
     "1.0.0",
-    "https://github.com/your-repo/astrbot_plugin_image_collector",
+    "https://github.com/Sakura520222/astrbot_plugin_image_collector",
 )
 class ImageCollectorPlugin(Star):
     """图片收集插件"""
@@ -373,10 +373,28 @@ class ImageCollectorPlugin(Star):
 
     def should_exclude_message(self, message_str: str) -> bool:
         """检查消息是否应该被排除"""
+        if not message_str:
+            return False
+        
+        # 检查排除词
         exclude_words = self.config.get("exclude_words", [])
         for word in exclude_words:
             if word in message_str:
+                logger.debug(f"消息包含排除词 '{word}'，跳过处理")
                 return True
+        
+        # 检查是否为指令（以配置的前缀开头）
+        # 注意：由于AstrBot框架的特性，指令消息的message_str可能不包含前缀
+        # 此检测主要用于手动输入包含前缀的消息
+        if self.config.get("ignore_commands", True):
+            prefixes = self.config.get("command_prefixes", ["/"])
+            trimmed_msg = message_str.strip()
+            
+            for prefix in prefixes:
+                if trimmed_msg.startswith(prefix):
+                    logger.debug(f"消息以指令前缀 '{prefix}' 开头，跳过处理")
+                    return True
+        
         return False
 
     @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE)
@@ -430,17 +448,22 @@ class ImageCollectorPlugin(Star):
             )
             
             if should_send and not self.should_exclude_message(message_str):
-                user_dir = self.get_user_dir(platform, group_id, user_id)
-                user_images = self.get_user_images(user_dir)
-                min_images = self.config.get("min_images", 1)
-                
-                if len(user_images) >= min_images:
-                    random_image = random.choice(user_images)
-                    try:
-                        yield event.image_result(random_image)
-                        logger.info(f"已随机发送图片: {random_image}")
-                    except Exception as e:
-                        logger.error(f"发送图片失败: {e}")
+                # 检查概率
+                probability = self.config.get("random_send_probability", 0.3)
+                if random.random() < probability:
+                    user_dir = self.get_user_dir(platform, group_id, user_id)
+                    user_images = self.get_user_images(user_dir)
+                    min_images = self.config.get("min_images", 1)
+                    
+                    if len(user_images) >= min_images:
+                        random_image = random.choice(user_images)
+                        try:
+                            yield event.image_result(random_image)
+                            logger.info(f"已随机发送图片: {random_image} (概率触发)")
+                        except Exception as e:
+                            logger.error(f"发送图片失败: {e}")
+                else:
+                    logger.debug(f"随机发送未触发 (概率: {probability})")
 
     @filter.command("图片统计")
     async def image_stats(self, event: AstrMessageEvent):
