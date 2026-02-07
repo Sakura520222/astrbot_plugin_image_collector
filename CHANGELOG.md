@@ -2,6 +2,68 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [1.1.0] - 2025-02-07
+
+### 重大重构 - 模块化架构
+本次更新对插件进行了全面的模块化重构，将单一文件拆分为多个功能模块，提升代码可维护性和可扩展性。
+
+### 架构改进
+- **模块化设计**：将 600+ 行的单一文件拆分为 11 个独立模块
+  - `core/config.py` - 配置管理类，实现配置解耦
+  - `core/exceptions.py` - 统一异常定义（6种自定义异常）
+  - `core/path_manager.py` - 路径管理器
+  - `core/index_manager.py` - 索引管理器
+  - `core/hash_calculator.py` - 哈希计算器
+  - `core/image_processor.py` - 图片处理器
+  - `core/image_downloader.py` - 图片下载器
+  - `core/dedup_service.py` - 去重服务
+  - `core/file_handler.py` - 文件处理器
+  - `core/message_filter.py` - 消息过滤器
+
+### 设计模式应用
+- **依赖注入**：各模块通过构造函数接收依赖，降低耦合度
+- **单一职责原则**：每个模块只负责一个特定功能域
+- **配置封装**：`PluginConfig` 类提供类型安全的配置访问接口
+- **统一异常处理**：定义专门的异常类型，便于错误追踪和处理
+
+### 代码质量提升
+- ✅ 完整的类型注解（Type Hints）
+- ✅ 详细的文档字符串（Docstrings）
+- ✅ 统一的日志记录规范
+- ✅ 符合 Python PEP 8 规范
+- ✅ 遵循项目结构规范（core 目录集中管理模块）
+
+### 开发体验优化
+- **易于测试**：可对各模块进行独立的单元测试
+- **易于维护**：单个文件代码量降至 200-400 行
+- **易于扩展**：新增功能时可轻松添加新模块
+- **代码复用**：核心模块可在其他项目中复用
+
+### 技术细节
+- 使用 `sys.path` 动态添加插件目录，支持模块导入
+- 使用 `os.path.join` 构建路径，提升兼容性
+- 保留原有功能完整性，100% 向后兼容
+
+### 文件结构
+```
+astrbot_plugin_image_collector/
+├── main.py              # 插件入口（精简至 ~200 行）
+├── core/                # 核心模块目录
+│   ├── __init__.py
+│   ├── config.py
+│   ├── exceptions.py
+│   ├── path_manager.py
+│   ├── index_manager.py
+│   ├── hash_calculator.py
+│   ├── image_processor.py
+│   ├── image_downloader.py
+│   ├── dedup_service.py
+│   ├── file_handler.py
+│   └── message_filter.py
+├── _conf_schema.json
+└── ...
+```
+
 ## [1.0.1] - 2025-02-06
 
 ### 新增功能
