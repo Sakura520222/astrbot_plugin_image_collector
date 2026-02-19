@@ -9,6 +9,7 @@ from typing import List, Optional
 
 from astrbot.api import logger
 
+from core.compression.format import detect_format
 from core.config import PluginConfig
 from core.dedup_service import DedupService
 from core.exceptions import FileOperationError
@@ -141,9 +142,14 @@ class FileHandler:
                 content, file_format = await self.image_processor.compress_image(content)
             except Exception as e:
                 logger.error(f"压缩图片失败，保存原始图片: {e}")
-                file_format = "jpg"
+                # 检测原始图片格式，确保扩展名与内容一致
+                format_type, _ = detect_format(content)
+                file_format = format_type.value
+                # content 保持原始内容
         else:
-            file_format = "jpg"
+            # 未启用压缩时，检测原始图片格式
+            format_type, _ = detect_format(content)
+            file_format = format_type.value
 
         # 5. 保存图片
         filename = f"{int(time.time())}_{md5_hash}.{file_format}"
