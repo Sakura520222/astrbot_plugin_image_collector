@@ -6,7 +6,7 @@
 import asyncio
 import io
 from abc import ABC, abstractmethod
-from typing import Tuple
+from typing import List, Tuple, Optional
 
 from PIL import Image
 
@@ -248,7 +248,7 @@ class StaticImageStrategy(CompressionStrategy):
 
 
 class GifStrategy(CompressionStrategy):
-    """GIF动图压缩策略"""
+    """GIF动图压缩策略（优化版）"""
 
     async def compress(
         self, content: bytes, config: CompressionConfig
@@ -260,7 +260,7 @@ class GifStrategy(CompressionStrategy):
     def _compress_sync(
         self, content: bytes, config: CompressionConfig
     ) -> Tuple[bytes, str]:
-        """同步压缩GIF动图"""
+        """同步压缩GIF动图（优化版）"""
         try:
             original_size = len(content)
 
@@ -271,7 +271,7 @@ class GifStrategy(CompressionStrategy):
 
             img = Image.open(io.BytesIO(content))
 
-            # 获取帧数
+            # 获取帧数和原始尺寸
             frame_count = 0
             frames = []
             try:
@@ -282,7 +282,8 @@ class GifStrategy(CompressionStrategy):
             except EOFError:
                 pass
 
-            logger.debug(f"GIF动图帧数: {frame_count}")
+            original_width, original_height = img.size
+            logger.debug(f"GIF动图原始信息: {frame_count}帧, {original_width}x{original_height}px")
 
             # 确定目标大小
             target_size = (
@@ -290,90 +291,340 @@ class GifStrategy(CompressionStrategy):
                 if config.target_size_kb > 0
                 else original_size * 0.8
             )
-            logger.debug(f"GIF压缩目标大小: {target_size} 字节")
+            logger.debug(f"GIF压缩目标大小: {target_size / 1024:.1f} KB")
 
-            # 尺寸压缩（逐步缩小直到满足目标）
-            current_frames = frames
-            scale_factors = config.gif_scale_factors
+            # 步骤1: 帧数优化（抽帧）
+            frames = self._optimize_frames(
+                frames, frame_count, config.gif_max_frames, config.gif_frame_skip_method
+            )
+            if len(frames) < frame_count:
+                logger.debug(f"帧数优化: {frame_count} -> {len(frames)} 帧")
+                frame_count = len(frames)
 
-            best_result = content
-            best_size = original_size
-
-            for scale in scale_factors:
-                if scale < 1.0:
-                    # 缩小尺寸
-                    new_width = int(img.size[0] * scale)
-                    new_height = int(img.size[1] * scale)
-                    if (
-                        new_width < config.gif_min_dimension
-                        or new_height < config.gif_min_dimension
-                    ):
-                        break
-
-                    logger.debug(f"尝试缩放: {scale * 100}% ({new_width}x{new_height})")
-                    resized_frames = []
-                    for frame in current_frames:
-                        resized = frame.copy()
-                        resized.thumbnail((new_width, new_height), Image.Resampling.LANCZOS)
-                        resized_frames.append(resized)
-                    current_frames = resized_frames
-
-                # 尝试不同的颜色深度
-                color_levels = (
-                    config.gif_color_levels if scale <= 0.8 else [256]
-                )
-
-                for colors in color_levels:
-                    if colors < 256:
-                        logger.debug(f"尝试颜色深度: {colors}")
-                        quantized_frames = []
-                        for frame in current_frames:
-                            if frame.mode == "P":
-                                reduced = frame.quantize(colors=colors)
-                                quantized_frames.append(reduced)
-                            else:
-                                quantized_frames.append(frame)
-                        test_frames = quantized_frames
-                    else:
-                        test_frames = current_frames
-
-                    # 保存GIF
-                    output = io.BytesIO()
-                    test_frames[0].save(
-                        output,
-                        format="GIF",
-                        optimize=True,
-                        save_all=True,
-                        disposal=2,
-                        append_images=test_frames[1:] if len(test_frames) > 1 else [],
-                        loop=0,
-                    )
-                    compressed = output.getvalue()
-                    compressed_size = len(compressed)
-
-                    logger.debug(
-                        f"缩放 {scale * 100}%, 颜色 {colors}: {compressed_size} 字节"
-                    )
-
-                    if compressed_size < best_size:
-                        best_result = compressed
-                        best_size = compressed_size
-                        current_frames = test_frames
-
-                    # 如果达到目标大小，停止
-                    if compressed_size <= target_size:
-                        logger.info(f"已达到目标大小 {target_size} 字节")
-                        break
-
-                if best_size <= target_size:
-                    break
-
-            logger.info(
-                f"GIF压缩完成: {original_size} -> {best_size} 字节 ({best_size / 1024:.1f} KB)"
+            # 步骤2: 智能缩放策略（使用二分查找）
+            frames, compressed = self._smart_scale_optimization(
+                frames, original_width, original_height, target_size, config
             )
 
-            return best_result, "gif"
+            # 如果缩放后达到目标，直接返回
+            if compressed and len(compressed) <= target_size:
+                logger.info(
+                    f"GIF压缩完成(缩放): {original_size} -> {len(compressed)} 字节 ({len(compressed) / 1024:.1f} KB)"
+                )
+                return compressed, "gif"
+
+            # 步骤3: 颜色深度优化
+            frames, compressed = self._color_optimization(
+                frames, target_size, config
+            )
+
+            # 如果颜色优化后达到目标，直接返回
+            if compressed and len(compressed) <= target_size:
+                logger.info(
+                    f"GIF压缩完成(颜色): {original_size} -> {len(compressed)} 字节 ({len(compressed) / 1024:.1f} KB)"
+                )
+                return compressed, "gif"
+
+            # 步骤4: 如果启用WebP转换且GIF压缩效果不佳，尝试转换为WebP
+            if config.gif_convert_to_webp and len(compressed) > target_size:
+                logger.debug("GIF压缩效果不佳，尝试转换为WebP格式")
+                webp_result = self._convert_to_webp(frames, target_size, config)
+                if webp_result and len(webp_result) <= min(len(compressed), target_size):
+                    logger.info(
+                        f"GIF转WebP完成: {original_size} -> {len(webp_result)} 字节 ({len(webp_result) / 1024:.1f} KB)"
+                    )
+                    return webp_result, "webp"
+
+            # 返回最佳结果
+            compressed_size = len(compressed)
+            logger.info(
+                f"GIF压缩完成: {original_size} -> {compressed_size} 字节 ({compressed_size / 1024:.1f} KB)"
+            )
+
+            return compressed, "gif"
 
         except Exception as e:
             logger.error(f"GIF压缩失败: {e}")
             raise CompressionError(f"GIF压缩失败: {e}") from e
+
+    def _optimize_frames(
+        self,
+        frames: List[Image.Image],
+        frame_count: int,
+        max_frames: int,
+        method: str,
+    ) -> List[Image.Image]:
+        """
+        优化帧数（抽帧）
+
+        Args:
+            frames: 帧列表
+            frame_count: 总帧数
+            max_frames: 最大帧数限制
+            method: 抽帧方法（uniform或smart）
+
+        Returns:
+            优化后的帧列表
+        """
+        if max_frames <= 0 or frame_count <= max_frames:
+            return frames
+
+        if method == "uniform":
+            # 均匀抽帧
+            step = frame_count / max_frames
+            return [frames[int(i * step)] for i in range(max_frames)]
+        else:
+            # 智能抽帧：保留首尾帧和关键变化帧
+            # 简化实现：保留第一帧、最后一帧，中间均匀采样
+            if max_frames >= 2:
+                first_frame = frames[0]
+                last_frame = frames[-1]
+                middle_count = max_frames - 2
+                if middle_count > 0:
+                    step = (frame_count - 2) / middle_count
+                    middle_frames = [frames[int(1 + i * step)] for i in range(middle_count)]
+                else:
+                    middle_frames = []
+                return [first_frame] + middle_frames + [last_frame]
+            else:
+                return [frames[0]]
+
+    def _smart_scale_optimization(
+        self,
+        frames: List[Image.Image],
+        original_width: int,
+        original_height: int,
+        target_size: int,
+        config: CompressionConfig,
+    ) -> Tuple[List[Image.Image], Optional[bytes]]:
+        """
+        智能缩放优化（使用二分查找）
+
+        Args:
+            frames: 帧列表
+            original_width: 原始宽度
+            original_height: 原始高度
+            target_size: 目标大小
+            config: 压缩配置
+
+        Returns:
+            (优化后的帧列表, 压缩后的内容)
+        """
+        # 检查是否需要缩放
+        if original_width <= config.gif_max_width and original_height <= config.gif_max_height:
+            # 不需要缩放，直接保存当前版本
+            output = io.BytesIO()
+            frames[0].save(
+                output,
+                format="GIF",
+                optimize=True,
+                save_all=True,
+                disposal=2,
+                append_images=frames[1:] if len(frames) > 1 else [],
+                loop=0,
+            )
+            return frames, output.getvalue()
+
+        # 二分查找最佳缩放比例
+        low = max(
+            config.gif_min_dimension / max(original_width, original_height),
+            config.gif_max_height / original_height if original_height > config.gif_max_height else 0,
+            config.gif_max_width / original_width if original_width > config.gif_max_width else 0,
+        )
+        high = 1.0
+
+        best_frames = frames
+        best_result = None
+        best_size = float("inf")
+
+        # 限制迭代次数避免过长
+        max_iterations = 5
+        iteration = 0
+
+        while iteration < max_iterations and high - low > 0.05:
+            iteration += 1
+            scale = (low + high) / 2
+
+            # 缩放帧
+            new_width = int(original_width * scale)
+            new_height = int(original_height * scale)
+
+            logger.debug(f"尝试缩放: {scale * 100:.1f}% ({new_width}x{new_height})")
+
+            scaled_frames = []
+            for frame in frames:
+                resized = frame.copy()
+                resized.thumbnail((new_width, new_height), Image.Resampling.LANCZOS)
+                scaled_frames.append(resized)
+
+            # 保存并检查大小
+            output = io.BytesIO()
+            scaled_frames[0].save(
+                output,
+                format="GIF",
+                optimize=True,
+                save_all=True,
+                disposal=2,
+                append_images=scaled_frames[1:] if len(scaled_frames) > 1 else [],
+                loop=0,
+            )
+            compressed = output.getvalue()
+            compressed_size = len(compressed)
+
+            logger.debug(f"缩放结果: {compressed_size / 1024:.1f} KB")
+
+            if compressed_size < best_size:
+                best_frames = scaled_frames
+                best_result = compressed
+                best_size = compressed_size
+
+            # 调整搜索范围
+            if compressed_size > target_size:
+                high = scale
+            else:
+                low = scale
+
+            # 早期终止：如果已经达到目标
+            if compressed_size <= target_size:
+                break
+
+        return best_frames, best_result
+
+    def _color_optimization(
+        self,
+        frames: List[Image.Image],
+        target_size: int,
+        config: CompressionConfig,
+    ) -> Tuple[List[Image.Image], bytes]:
+        """
+        颜色深度优化
+
+        Args:
+            frames: 帧列表
+            target_size: 目标大小
+            config: 压缩配置
+
+        Returns:
+            (优化后的帧列表, 压缩后的内容)
+        """
+        best_frames = frames
+        best_result = None
+        best_size = float("inf")
+
+        # 先保存当前版本作为基准
+        output = io.BytesIO()
+        frames[0].save(
+            output,
+            format="GIF",
+            optimize=True,
+            save_all=True,
+            disposal=2,
+            append_images=frames[1:] if len(frames) > 1 else [],
+            loop=0,
+        )
+        best_result = output.getvalue()
+        best_size = len(best_result)
+
+        if best_size <= target_size:
+            return frames, best_result
+
+        # 尝试不同的颜色深度
+        for colors in config.gif_color_levels:
+            if colors >= 256:
+                continue
+
+            logger.debug(f"尝试颜色深度: {colors}")
+
+            quantized_frames = []
+            for frame in frames:
+                if frame.mode == "P":
+                    # 使用更优的量化算法
+                    if config.gif_use_mediancut:
+                        try:
+                            # 尝试使用MEDIANCUT量化方法
+                            reduced = frame.quantize(
+                                colors=colors,
+                                method=Image.Quantize.MEDIANCUT if hasattr(Image.Quantize, 'MEDIANCUT') else None,
+                            )
+                            quantized_frames.append(reduced)
+                        except Exception as e:
+                            logger.debug(f"MEDIANCUT量化失败，使用默认方法: {e}")
+                            reduced = frame.quantize(colors=colors)
+                            quantized_frames.append(reduced)
+                    else:
+                        reduced = frame.quantize(colors=colors)
+                        quantized_frames.append(reduced)
+                else:
+                    quantized_frames.append(frame)
+
+            # 保存并检查
+            output = io.BytesIO()
+            quantized_frames[0].save(
+                output,
+                format="GIF",
+                optimize=True,
+                save_all=True,
+                disposal=2,
+                append_images=quantized_frames[1:] if len(quantized_frames) > 1 else [],
+                loop=0,
+            )
+            compressed = output.getvalue()
+            compressed_size = len(compressed)
+
+            logger.debug(f"颜色深度 {colors}: {compressed_size / 1024:.1f} KB")
+
+            if compressed_size < best_size:
+                best_frames = quantized_frames
+                best_result = compressed
+                best_size = compressed_size
+
+            # 早期终止
+            if compressed_size <= target_size:
+                break
+
+        return best_frames, best_result
+
+    def _convert_to_webp(
+        self,
+        frames: List[Image.Image],
+        target_size: int,
+        config: CompressionConfig,
+    ) -> Optional[bytes]:
+        """
+        转换为WebP格式
+
+        Args:
+            frames: 帧列表
+            target_size: 目标大小
+            config: 压缩配置
+
+        Returns:
+            WebP格式的内容，失败返回None
+        """
+        try:
+            output = io.BytesIO()
+
+            # WebP支持更好的压缩
+            save_params = {
+                "format": "WebP",
+                "save_all": True,
+                "duration": 100,  # 默认帧持续时间
+                "loop": 0,
+                "quality": 85,
+                "method": 6,  # 最高压缩级别
+            }
+
+            frames[0].save(
+                output,
+                **save_params,
+                append_images=frames[1:] if len(frames) > 1 else [],
+            )
+
+            webp_content = output.getvalue()
+            logger.debug(f"WebP转换成功: {len(webp_content) / 1024:.1f} KB")
+
+            return webp_content
+
+        except Exception as e:
+            logger.debug(f"WebP转换失败（可能Pillow版本不支持）: {e}")
+            return None

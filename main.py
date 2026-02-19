@@ -31,7 +31,7 @@ from core.path_manager import PathManager
     "image_collector",
     "Sakura520222",
     "自动收集群友发送的图片，支持去重和压缩，并在用户发送消息时随机回复其图库中的图片",
-    "1.2.0",
+    "1.3.0",
     "https://github.com/Sakura520222/astrbot_plugin_image_collector",
 )
 class ImageCollectorPlugin(Star):

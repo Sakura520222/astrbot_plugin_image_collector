@@ -84,6 +84,31 @@
     "default": 100,
     "hint": "GIF压缩时的最小宽度或高度限制"
   },
+  "gif_max_frames": {
+    "type": "int",
+    "description": "GIF最大帧数",
+    "default": 0,
+    "hint": "限制GIF最大帧数，超过将通过抽帧减少。0表示不限制"
+  },
+  "gif_frame_skip_method": {
+    "type": "string",
+    "description": "抽帧方式",
+    "options": ["uniform", "smart"],
+    "default": "uniform",
+    "hint": "uniform: 均匀抽帧, smart: 智能抽帧（保留关键帧）"
+  },
+  "gif_convert_to_webp": {
+    "type": "bool",
+    "description": "GIF转WebP",
+    "default": false,
+    "hint": "当GIF压缩效果不佳时，转换为WebP格式（压缩率更高，需要pillow-heif或支持WebP的Pillow）"
+  },
+  "gif_use_mediancut": {
+    "type": "bool",
+    "description": "使用更优量化算法",
+    "default": true,
+    "hint": "使用MEDIANCUT量化算法（更慢但效果更好）"
+  },
   "target_size_kb": {
     "type": "int",
     "description": "目标文件大小（KB）",

@@ -32,6 +32,10 @@ class CompressionConfig:
     gif_scale_factors: list[float]  # GIF缩放因子列表
     gif_color_levels: list[int]  # GIF颜色深度列表
     gif_min_dimension: int  # GIF最小尺寸限制
+    gif_max_frames: int  # GIF最大帧数限制
+    gif_frame_skip_method: str  # 抽帧方式：uniform或smart
+    gif_convert_to_webp: bool  # 是否转换为WebP格式
+    gif_use_mediancut: bool  # 是否使用MEDIANCUT量化算法
 
     @staticmethod
     def from_plugin_config(config: PluginConfig) -> "CompressionConfig":
@@ -62,4 +66,8 @@ class CompressionConfig:
             gif_scale_factors=config.get("gif_scale_factors", [1.0, 0.8, 0.6, 0.4]),
             gif_color_levels=config.get("gif_color_levels", [256, 128, 64, 32]),
             gif_min_dimension=config.get("gif_min_dimension", 100),
+            gif_max_frames=config.get("gif_max_frames", 0),
+            gif_frame_skip_method=config.get("gif_frame_skip_method", "uniform"),
+            gif_convert_to_webp=config.get("gif_convert_to_webp", False),
+            gif_use_mediancut=config.get("gif_use_mediancut", True),
         )
