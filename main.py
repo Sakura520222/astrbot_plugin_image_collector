@@ -197,4 +197,6 @@ class ImageCollectorPlugin(Star):
 
     async def terminate(self):
         """插件卸载时调用"""
+        # 关闭 HTTP 会话，释放资源
+        await self.image_downloader.close()
         logger.info("图片收集插件已卸载")

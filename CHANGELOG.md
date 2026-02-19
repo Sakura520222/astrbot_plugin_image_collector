@@ -5,6 +5,16 @@
 ## [1.3.1] - 2026-02-19
 
 ### 问题修复
+- **修复资源管理问题，提升性能和稳定性**：
+  - 修复 `HashCalculator.calculate_perceptual_hash()` 中 PIL Image 对象未显式关闭的问题
+    - 使用 `with` 上下文管理器确保 Image 对象及时释放
+    - 避免高频图片处理场景下的内存泄漏和文件句柄占用
+  - 修复 `ImageDownloader.download_image()` 中每次下载都新建 ClientSession 的问题
+    - 实现共享 ClientSession 模式，复用 TCP 连接
+    - 添加 `_get_session()` 懒加载方法和 `close()` 清理方法
+    - 在插件卸载时（`terminate()`）正确关闭 HTTP 会话
+    - 显著提升并发下载性能，减少网络握手开销
+
 - **修复文件扩展名与内容格式不一致的问题**：
   - 修复压缩失败时强制使用 `.jpg` 扩展名的逻辑错误
   - 修复未启用压缩时强制使用 `.jpg` 扩展名的逻辑错误

@@ -45,13 +45,13 @@ class HashCalculator:
             包含多种感知哈希的字典
         """
         try:
-            img = Image.open(io.BytesIO(content))
-            return {
-                "ahash": str(imagehash.average_hash(img)),
-                "phash": str(imagehash.phash(img)),
-                "dhash": str(imagehash.dhash(img)),
-                "whash": str(imagehash.whash(img)),
-            }
+            with Image.open(io.BytesIO(content)) as img:
+                return {
+                    "ahash": str(imagehash.average_hash(img)),
+                    "phash": str(imagehash.phash(img)),
+                    "dhash": str(imagehash.dhash(img)),
+                    "whash": str(imagehash.whash(img)),
+                }
         except Exception as e:
             logger.error(f"计算感知哈希失败: {e}")
             raise HashCalculationError(f"计算感知哈希失败: {e}") from e
