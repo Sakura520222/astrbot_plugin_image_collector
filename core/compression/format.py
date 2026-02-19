@@ -54,34 +54,37 @@ def detect_format(content: bytes) -> tuple[ImageFormat, bool]:
         
     Returns:
         (格式类型, 是否为动图)
+        检测失败时返回 (ImageFormat.UNKNOWN, False)
     """
     try:
-        img = Image.open(io.BytesIO(content))
-        format_type = ImageFormat.from_pil_format(img.format)
+        # 使用上下文管理器确保图像对象正确关闭
+        with Image.open(io.BytesIO(content)) as img:
+            format_type = ImageFormat.from_pil_format(img.format)
 
-        # 检查是否为动图
-        is_animated = False
-        if format_type == ImageFormat.GIF:
-            try:
-                is_animated = getattr(img, "is_animated", False)
-                if not is_animated:
-                    # 尝试通过帧数判断
-                    try:
-                        img.seek(1)
-                        img.seek(0)
-                        is_animated = True
-                    except EOFError:
-                        is_animated = False
-            except Exception:
-                is_animated = False
-        elif format_type == ImageFormat.WEBP:
-            # WebP动图检测
-            try:
-                is_animated = getattr(img, "is_animated", False)
-            except Exception:
-                is_animated = False
+            # 检查是否为动图
+            is_animated = False
+            if format_type == ImageFormat.GIF:
+                try:
+                    is_animated = getattr(img, "is_animated", False)
+                    if not is_animated:
+                        # 尝试通过帧数判断
+                        try:
+                            img.seek(1)
+                            img.seek(0)
+                            is_animated = True
+                        except EOFError:
+                            is_animated = False
+                except Exception:
+                    is_animated = False
+            elif format_type == ImageFormat.WEBP:
+                # WebP动图检测
+                try:
+                    is_animated = getattr(img, "is_animated", False)
+                except Exception:
+                    is_animated = False
 
-        return format_type, is_animated
+            return format_type, is_animated
     except Exception as e:
-        logger.warning(f"图片格式检测失败: {e}，默认为JPEG")
-        return ImageFormat.JPEG, False
+        # 检测失败时返回 UNKNOWN，避免静默失败
+        logger.debug(f"图片格式检测失败: {e}")
+        return ImageFormat.UNKNOWN, False

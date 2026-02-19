@@ -144,12 +144,20 @@ class FileHandler:
                 logger.error(f"压缩图片失败，保存原始图片: {e}")
                 # 检测原始图片格式，确保扩展名与内容一致
                 format_type, _ = detect_format(content)
-                file_format = format_type.value
+                if format_type.value == "unknown":
+                    logger.warning("无法识别图片格式，使用默认扩展名 .bin")
+                    file_format = "bin"
+                else:
+                    file_format = format_type.value
                 # content 保持原始内容
         else:
             # 未启用压缩时，检测原始图片格式
             format_type, _ = detect_format(content)
-            file_format = format_type.value
+            if format_type.value == "unknown":
+                logger.warning("无法识别图片格式，使用默认扩展名 .bin")
+                file_format = "bin"
+            else:
+                file_format = format_type.value
 
         # 5. 保存图片
         filename = f"{int(time.time())}_{md5_hash}.{file_format}"

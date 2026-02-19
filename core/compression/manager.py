@@ -51,10 +51,15 @@ class CompressionManager:
         format_type, is_animated = detect_format(content)
         logger.debug(f"检测到图片格式: {format_type.value}, 是否动图: {is_animated}")
 
-        # 2. 选择策略
+        # 2. 处理未知格式：跳过压缩，返回原始内容
+        if format_type == ImageFormat.UNKNOWN:
+            logger.warning("图片格式未知，跳过压缩处理")
+            return content, "unknown"
+
+        # 3. 选择策略
         strategy = self._select_strategy(format_type, is_animated)
 
-        # 3. 执行压缩
+        # 4. 执行压缩
         return await strategy.compress(content, self.compression_config)
 
     def _select_strategy(
