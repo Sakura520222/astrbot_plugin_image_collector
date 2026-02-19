@@ -68,6 +68,9 @@
 | `jpeg_quality` | JPEG质量（1-100） | 85 |
 | `max_file_size` | 最大文件大小（MB） | 2 |
 | `convert_to_jpeg` | PNG转JPEG | true |
+| `gif_max_width` | GIF最大宽度（像素） | 800 |
+| `gif_max_height` | GIF最大高度（像素） | 600 |
+| `gif_min_dimension` | GIF最小尺寸限制（像素） | 100 |
 
 **压缩模式说明**：
 
@@ -169,6 +172,20 @@ data/plugin_data/image_collector/
 5. GIF动图默认不压缩以保持动画效果，会占用较多存储空间
 
 ## 版本历史
+
+### v1.2.0
+- **重大重构**：统一压缩管理器
+  - 新增 `core/compression/` 模块，实现策略模式的压缩架构
+  - 支持自动格式检测和策略选择
+  - GIF和静态图片共享统一的压缩流程
+  - 使用 `asyncio.to_thread()` 实现真正的异步压缩
+  - 消除重复代码，提升可维护性和可扩展性
+- 新增GIF专用配置项：`gif_max_width`、`gif_max_height`、`gif_min_dimension`
+- 向后兼容，所有现有配置和API保持不变
+
+### v1.1.0
+- 模块化重构，拆分为11个独立模块
+- 提升代码可维护性和可扩展性
 
 ### v1.0.0
 - 初始版本

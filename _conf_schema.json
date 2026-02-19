@@ -66,6 +66,24 @@
     "default": true,
     "hint": "GIF动图不进行压缩，保持原始格式"
   },
+  "gif_max_width": {
+    "type": "int",
+    "description": "GIF最大宽度",
+    "default": 800,
+    "hint": "GIF动图最大宽度（像素），超过将等比缩放"
+  },
+  "gif_max_height": {
+    "type": "int",
+    "description": "GIF最大高度",
+    "default": 600,
+    "hint": "GIF动图最大高度（像素），超过将等比缩放"
+  },
+  "gif_min_dimension": {
+    "type": "int",
+    "description": "GIF最小尺寸",
+    "default": 100,
+    "hint": "GIF压缩时的最小宽度或高度限制"
+  },
   "target_size_kb": {
     "type": "int",
     "description": "目标文件大小（KB）",
