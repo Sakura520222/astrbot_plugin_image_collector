@@ -2,6 +2,7 @@
 
 import os
 import sys
+import shutil
 
 # 添加插件目录到 sys.path 以支持模块导入
 plugin_dir = os.path.dirname(os.path.abspath(__file__))
@@ -31,7 +32,7 @@ from core.path_manager import PathManager
     "image_collector",
     "Sakura520222",
     "自动收集群友发送的图片，支持去重和压缩，并在用户发送消息时随机回复其图库中的图片",
-    "1.3.1",
+    "1.3.2",
     "https://github.com/Sakura520222/astrbot_plugin_image_collector",
 )
 class ImageCollectorPlugin(Star):
@@ -194,6 +195,125 @@ class ImageCollectorPlugin(Star):
         user_images = self.file_handler.get_user_images(user_dir)
         
         yield event.plain_result(f"你已收集 {len(user_images)} 张图片")
+
+    def _count_total_images(self) -> int:
+        """
+        统计当前收集的图片总数
+        
+        Returns:
+            图片总数
+        """
+        total = 0
+        data_dir = self.config.get_data_dir()
+        
+        try:
+            if not data_dir.exists():
+                return 0
+            
+            for platform_dir in data_dir.iterdir():
+                if not platform_dir.is_dir():
+                    continue
+                for group_dir in platform_dir.iterdir():
+                    if not group_dir.is_dir():
+                        continue
+                    for user_dir in group_dir.iterdir():
+                        if not user_dir.is_dir():
+                            continue
+                        images_dir = user_dir / "images"
+                        if images_dir.exists():
+                            images = self.file_handler.get_user_images(images_dir)
+                            total += len(images)
+        except Exception as e:
+            logger.error(f"统计图片数量时出错: {e}")
+        
+        return total
+
+    async def _clear_all_images(self) -> bool:
+        """
+        清空所有收集的图片（仅删除内容，保留目录结构）
+        
+        Returns:
+            是否成功
+        """
+        data_dir = self.config.get_data_dir()
+        
+        try:
+            if not data_dir.exists():
+                logger.warning("数据目录不存在，无需清空")
+                return True
+            
+            # 遍历并删除所有子目录的内容
+            for platform_dir in data_dir.iterdir():
+                if not platform_dir.is_dir():
+                    continue
+                
+                for group_dir in platform_dir.iterdir():
+                    if not group_dir.is_dir():
+                        continue
+                    
+                    for user_dir in group_dir.iterdir():
+                        if not user_dir.is_dir():
+                            continue
+                        
+                        # 删除 images 目录中的所有文件
+                        images_dir = user_dir / "images"
+                        if images_dir.exists():
+                            for file in images_dir.iterdir():
+                                if file.is_file():
+                                    file.unlink()
+                                    logger.debug(f"已删除文件: {file}")
+                        
+                        # 删除索引文件
+                        index_file = user_dir / "index.json"
+                        if index_file.exists():
+                            index_file.unlink()
+                            logger.debug(f"已删除索引文件: {index_file}")
+            
+            logger.info("已清空所有收集的图片")
+            return True
+            
+        except Exception as e:
+            logger.error(f"清空图片时出错: {e}")
+            return False
+
+    @filter.permission_type(filter.PermissionType.ADMIN)
+    @filter.command("清空图片")
+    async def clear_images(self, event: AstrMessageEvent):
+        """
+        清空所有收集的图片（仅限管理员）
+        用法：/清空图片 [确认]
+        """
+        
+        # 获取指令参数
+        message_str = event.message_str or ""
+        parts = message_str.strip().split()
+        confirmed = len(parts) > 1 and parts[1] in ["确认", "confirm"]
+        
+        # 如果没有确认参数，显示统计信息和确认提示
+        if not confirmed:
+            total_images = self._count_total_images()
+            if total_images == 0:
+                yield event.plain_result("当前还没有收集任何图片")
+                return
+            
+            warning_msg = (
+                f"⚠️ 警告：此操作将清空所有收集的图片（共 {total_images} 张）\n"
+                f"此操作不可逆！\n\n"
+                f"如确认执行，请发送：/清空图片 确认"
+            )
+            yield event.plain_result(warning_msg)
+            return
+        
+        # 执行清空操作
+        yield event.plain_result("⏳ 正在清空所有图片，请稍候...")
+        
+        success = await self._clear_all_images()
+        
+        if success:
+            yield event.plain_result("✅ 已成功清空所有收集的图片")
+            logger.info(f"管理员 {event.get_sender_id()} 清空了所有图片")
+        else:
+            yield event.plain_result("❌ 清空图片时发生错误，请查看日志")
 
     async def terminate(self):
         """插件卸载时调用"""
